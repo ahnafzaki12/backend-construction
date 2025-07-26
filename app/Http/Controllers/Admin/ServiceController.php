@@ -55,29 +55,25 @@ class ServiceController extends Controller
         // Save temp image
         if ($request->imageId > 0) {
             $tempImage = TempImage::find($request->imageId);
-            if ($tempImage != null) {
+
+            if ($tempImage !== null) {
                 $extArray = explode('.', $tempImage->name);
                 $ext = last($extArray);
 
-                $fileName = strtotime('now') . $model->id . '.' . $ext;
+                $fileName = time() . $model->id . '.' . $ext;
 
                 $sourcePath = public_path('uploads/temp/' . $tempImage->name);
-                $destPath = public_path('uploads/services/small/'.$fileName);
-                $manager = new ImageManager(new Driver());
-                $image = $manager->read($sourcePath);
-                $image->coverDown(500, 600);
-                $image->save($destPath);
+                $destPath = public_path('uploads/services/' . $fileName);
 
-                $destPath = public_path('uploads/services/large/'.$fileName);
-                $manager = new ImageManager(new Driver());
-                $image = $manager->read($sourcePath);
-                $image->scaleDown(1200);
-                $image->save($destPath);
+                // Pindahkan file TANPA resize atau edit
+                File::move($sourcePath, $destPath);
 
+                // Simpan nama file ke database
                 $model->image = $fileName;
                 $model->save();
             }
         }
+
 
         return response()->json([
             'status' => true,
@@ -139,7 +135,6 @@ class ServiceController extends Controller
             ]);
         }
 
-
         $service->title = $request->title;
         $service->short_desc = $request->short_desc;
         $service->slug = Str::slug($request->slug);
@@ -147,36 +142,45 @@ class ServiceController extends Controller
         $service->status = $request->status;
         $service->save();
 
-        // Save temp image
+        // ✅ Ganti gambar jika ada imageId
         if ($request->imageId > 0) {
             $oldImage = $service->image;
             $tempImage = TempImage::find($request->imageId);
-            if ($tempImage != null) {
+
+            if ($tempImage !== null) {
                 $extArray = explode('.', $tempImage->name);
                 $ext = last($extArray);
-
-                $fileName = strtotime('now') . $service->id . '.' . $ext;
+                $fileName = time() . $service->id . '.' . $ext;
 
                 $sourcePath = public_path('uploads/temp/' . $tempImage->name);
-                $destPath = public_path('uploads/services/small/'.$fileName);
-                $manager = new ImageManager(new Driver());
-                $image = $manager->read($sourcePath);
-                $image->coverDown(500, 600);
-                $image->save($destPath);
+                $destPath = public_path('uploads/services/' . $fileName);
 
-                $destPath = public_path('uploads/services/large/'.$fileName);
-                $manager = new ImageManager(new Driver());
-                $image = $manager->read($sourcePath);
-                $image->scaleDown(1200);
-                $image->save($destPath);
+                // Pastikan folder tujuan ada
+                if (!File::exists(public_path('uploads/services'))) {
+                    File::makeDirectory(public_path('uploads/services'), 0755, true);
+                }
 
+                // Pindahkan file TANPA resize/crop
+                File::move($sourcePath, $destPath);
+
+                // Hapus file lama (jika ada)
+                if (!empty($oldImage)) {
+                    $oldPath = public_path('uploads/services/' . $oldImage);
+                    if (File::exists($oldPath)) {
+                        File::delete($oldPath);
+                    }
+                }
+
+                // Simpan file baru
                 $service->image = $fileName;
                 $service->save();
 
-                if ($oldImage != '') {
-                    File::delete(public_path('uploads/services/large/'.$oldImage));  
-                    File::delete(public_path('uploads/services/small/'.$oldImage));  
+                // Bersihkan dari temp
+                if (File::exists($sourcePath)) {
+                    File::delete($sourcePath);
                 }
+
+                $tempImage->delete();
             }
         }
 
@@ -199,6 +203,8 @@ class ServiceController extends Controller
                 'message' => 'Service not found'
             ]);
         }
+
+        File::delete(public_path('uploads/projects/'.$service->image));
 
         $service->delete();
 

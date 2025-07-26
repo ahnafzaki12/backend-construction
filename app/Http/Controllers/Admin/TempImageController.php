@@ -6,10 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\TempImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
-
-use function Laravel\Prompts\error;
 
 class TempImageController extends Controller
 {
@@ -27,24 +23,16 @@ class TempImageController extends Controller
         }
 
         $image = $request->image;
-
         $ext = $image->getClientOriginalExtension();
-        $imageName = strtotime('now') . '.' . $ext;
+        $imageName = time() . '.' . $ext;
 
-        // save data in temp images table
+        // Simpan data di database
         $model = new TempImage();
         $model->name = $imageName;
         $model->save();
 
-        // save image in uploads/temp directory
+        // Simpan file asli ke uploads/temp (tanpa resize)
         $image->move(public_path('uploads/temp'), $imageName);
-
-        $sourcePath = public_path('uploads/temp/'.$imageName);
-        $destPath = public_path('uploads/temp/thumb/'.$imageName);
-        $manager = new ImageManager(new Driver());
-        $image = $manager->read($sourcePath);
-        $image->coverDown(400, 320);
-        $image->save($destPath);
 
         return response()->json([
             'status' => true,
