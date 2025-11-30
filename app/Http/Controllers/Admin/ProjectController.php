@@ -54,39 +54,11 @@ class ProjectController extends Controller
                 $destPath = public_path('uploads/projects/' . $fileName);
 
                 // Cek apakah file sumber ada
-                if (!File::exists($sourcePath)) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'File not found at source path: ' . $sourcePath
-                    ], 404);
-                }
-
-                // Pastikan folder tujuan ada
-                if (!File::exists(public_path('uploads/projects'))) {
-                    File::makeDirectory(public_path('uploads/projects'), 0755, true);
-                }
-
-                // Pindahkan file
-                try {
-                    File::move($sourcePath, $destPath);
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Error moving file: ' . $e->getMessage()
-                    ], 500);
-                }
+                File::move($sourcePath, $destPath);
 
                 // Simpan nama file ke database
                 $project->image = $fileName;
                 $project->save();
-
-                // Hapus file sementara dari temp
-                $tempImage->delete();
-            } else {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Temporary image not found'
-                ], 404);
             }
         }
 
@@ -161,7 +133,6 @@ class ProjectController extends Controller
                 $project->image = $fileName;
                 $project->save();
 
-                // Bersihkan dari temp
                 if (File::exists($sourcePath)) {
                     File::delete($sourcePath);
                 }
