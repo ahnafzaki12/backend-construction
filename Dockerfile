@@ -30,4 +30,5 @@ RUN chmod -R 777 storage bootstrap/cache
 
 # Railway pakai PORT dari env
 CMD php artisan migrate --force --seed && \
+    php artisan storage:link && \
     php artisan serve --host=0.0.0.0 --port=${PORT}
