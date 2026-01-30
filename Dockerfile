@@ -5,8 +5,10 @@ RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libonig-dev libxml2-dev zip \
     && docker-php-ext-install pdo pdo_mysql mbstring exif bcmath gd
 
-# Enable rewrite only (JANGAN SENTUH MPM)
-RUN a2enmod rewrite
+# FIX MPM CONFLICT (INI KUNCI)
+RUN a2dismod mpm_event mpm_worker || true \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite
 
 # Set document root ke Laravel public
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
@@ -21,7 +23,6 @@ RUN sed -i 's/Listen 80/Listen ${PORT}/g' /etc/apache2/ports.conf \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
-
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
@@ -30,5 +31,4 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
 EXPOSE ${PORT}
-
 CMD ["apache2-foreground"]
