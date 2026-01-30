@@ -29,4 +29,5 @@ RUN composer install --no-dev --optimize-autoloader
 RUN chmod -R 777 storage bootstrap/cache
 
 # Railway pakai PORT dari env
-CMD php artisan serve --host=0.0.0.0 --port=${PORT}
+CMD php artisan migrate --force && \
+    php artisan serve --host=0.0.0.0 --port=${PORT}
