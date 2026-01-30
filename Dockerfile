@@ -1,36 +1,38 @@
-FROM php:8.2-apache
+FROM php:8.2-fpm
 
-# HARD FIX MPM CONFLICT (WAJIB DI RAILWAY)
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.* \
-         /etc/apache2/mods-enabled/mpm_worker.* \
-    && rm -f /etc/apache2/mods-available/mpm_event.* \
-             /etc/apache2/mods-available/mpm_worker.* \
-    && a2enmod mpm_prefork rewrite
-
-# Dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git unzip libpng-dev libonig-dev libxml2-dev zip \
-    && docker-php-ext-install pdo pdo_mysql mbstring exif bcmath gd
+    git \
+    curl \
+    zip \
+    unzip \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    nginx
 
-# Laravel public root
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
- && sed -ri 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Railway PORT
-RUN sed -i 's/Listen 80/Listen ${PORT}/g' /etc/apache2/ports.conf \
- && sed -i 's/:80/:${PORT}/g' /etc/apache2/sites-available/000-default.conf
-
-# Composer
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www/html
+# Set working directory
+WORKDIR /var/www
+
+# Copy project files
 COPY . .
 
+# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-RUN chown -R www-data:www-data /var/www/html \
- && chmod -R 775 storage bootstrap/cache
+# Permission
+RUN chown -R www-data:www-data storage bootstrap/cache
 
-EXPOSE ${PORT}
-CMD ["apache2-foreground"]
+# Copy nginx config
+COPY nginx.conf /etc/nginx/sites-enabled/default
+
+EXPOSE 80
+
+CMD service nginx start && php-fpm
